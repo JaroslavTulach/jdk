@@ -36,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Formatter;
-import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -45,14 +44,12 @@ import java.util.StringJoiner;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import jdk.internal.vm.annotation.IntrinsicCandidate;
 import jdk.internal.vm.annotation.Stable;
 
-import static java.util.function.Predicate.not;
 
 /**
  * The {@code String} class represents character strings. All
@@ -2787,7 +2784,7 @@ public final class String
      * @since 11
      */
     public boolean isBlank() {
-        return indexOfNonWhitespace() == length();
+        return StringIndent.indexOfNonWhitespace(this) == length();
     }
 
     /**
@@ -2861,29 +2858,7 @@ public final class String
      * @since 12
      */
     public String indent(int n) {
-        if (isEmpty()) {
-            return "";
-        }
-        Stream<String> stream = lines();
-        if (n > 0) {
-            final String spaces = " ".repeat(n);
-            stream = stream.map(s -> spaces + s);
-        } else if (n == Integer.MIN_VALUE) {
-            stream = stream.map(s -> s.stripLeading());
-        } else if (n < 0) {
-            stream = stream.map(s -> s.substring(Math.min(-n, s.indexOfNonWhitespace())));
-        }
-        return stream.collect(Collectors.joining("\n", "", "\n"));
-    }
-
-    private int indexOfNonWhitespace() {
-        return isLatin1() ? StringLatin1.indexOfNonWhitespace(value)
-                          : StringUTF16.indexOfNonWhitespace(value);
-    }
-
-    private int lastIndexOfNonWhitespace() {
-        return isLatin1() ? StringLatin1.lastIndexOfNonWhitespace(value)
-                          : StringUTF16.lastIndexOfNonWhitespace(value);
+        return StringIndent.indent(this, n);
     }
 
     /**
@@ -2975,40 +2950,7 @@ public final class String
      *
      */
     public String stripIndent() {
-        int length = length();
-        if (length == 0) {
-            return "";
-        }
-        char lastChar = charAt(length - 1);
-        boolean optOut = lastChar == '\n' || lastChar == '\r';
-        List<String> lines = lines().collect(Collectors.toList());
-        final int outdent = optOut ? 0 : outdent(lines);
-        return lines.stream()
-            .map(line -> {
-                int firstNonWhitespace = line.indexOfNonWhitespace();
-                int lastNonWhitespace = line.lastIndexOfNonWhitespace();
-                int incidentalWhitespace = Math.min(outdent, firstNonWhitespace);
-                return firstNonWhitespace > lastNonWhitespace
-                    ? "" : line.substring(incidentalWhitespace, lastNonWhitespace);
-            })
-            .collect(Collectors.joining("\n", "", optOut ? "\n" : ""));
-    }
-
-    private static int outdent(List<String> lines) {
-        // Note: outdent is guaranteed to be zero or positive number.
-        // If there isn't a non-blank line then the last must be blank
-        int outdent = Integer.MAX_VALUE;
-        for (String line : lines) {
-            int leadingWhitespace = line.indexOfNonWhitespace();
-            if (leadingWhitespace != line.length()) {
-                outdent = Integer.min(outdent, leadingWhitespace);
-            }
-        }
-        String lastLine = lines.get(lines.size() - 1);
-        if (lastLine.isBlank()) {
-            outdent = Integer.min(outdent, lastLine.length());
-        }
-        return outdent;
+        return StringIndent.stripIndent(this);
     }
 
     /**
